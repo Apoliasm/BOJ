@@ -1,6 +1,6 @@
-# [level 2] [3차] n진수 게임 - 17687 
+# [level 2] [3차] n진수 게임 - 17687
 
-[문제 링크](https://school.programmers.co.kr/learn/courses/30/lessons/17687?language=javascript) 
+[문제 링크](https://school.programmers.co.kr/learn/courses/30/lessons/17687?language=javascript)
 
 ### 성능 요약
 
@@ -89,5 +89,9 @@
       </table>
 <p><a href="http://tech.kakao.com/2017/11/14/kakao-blind-recruitment-round-3/" target="_blank" rel="noopener">해설 보러가기</a></p>
 
-
 > 출처: 프로그래머스 코딩 테스트 연습, https://school.programmers.co.kr/learn/challenges
+
+# 분석
+
+- **숫자를 n진수로 변환**
+  - **Number(i).toString(n)으로 n진수로 변환가능**
