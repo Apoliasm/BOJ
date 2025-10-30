@@ -1,30 +1,7 @@
-const fs = require("fs");
-const input = fs.readFileSync(0, "utf-8").trim().split("\n");
-
-let lineIdx = 0;
-let [n, m, x] = input[lineIdx++].trim().split(" ").map(Number);
-
-// 그래프 초기화 (1-indexed)
-const graph = Array.from({ length: n + 1 }, () => []);
-const reverseGraph = Array.from({ length: n + 1 }, () => []);
-
-// 간선 정보 입력
-for (let i = 0; i < m; i++) {
-  const [src, dest, weight] = input[lineIdx++].trim().split(" ").map(Number);
-  graph[src].push({ dest, weight });
-  reverseGraph[dest].push({ dest: src, weight }); // 역방향 간선 저장
-}
-
-/**
- * 최소 힙 (우선순위 큐)
- * 요소 형태: { node, cost } 또는 { dest, weight } (우린 dest/weight 쓸 거야)
- * compare(a, b) 가 true면 a가 b보다 "우선순위가 높다"(= 위로 올라가야 한다)는 의미
- * -> 여기서는 비용(cost/weight)가 더 작은 게 우선
- */
-class MinHeap {
-  constructor(compare) {
-    this.array = [null]; // 1번 인덱스부터 사용
-    this.compare = compare;
+class PriorityQueue {
+  constructor(compareCallback) {
+    this.array = [0];
+    this.compare = compareCallback;
   }
 
   get length() {
@@ -35,109 +12,121 @@ class MinHeap {
     this.array.push(item);
     this.heapUp();
   }
-
   pop() {
-    if (this.length === 0) return undefined;
-
-    const top = this.array[1];
-    const last = this.array[this.length];
-    this.array.pop();
-
-    if (this.length > 0) {
-      this.array[1] = last;
-      this.heapDown();
-    }
-
-    return top;
+    let front = this.array[1];
+    if (!front) return;
+    this.heapDown();
+    return front;
   }
-
   heapUp() {
-    let idx = this.length;
-    while (idx > 1) {
-      const parent = Math.floor(idx / 2);
-      if (!this.compare(this.array[idx], this.array[parent])) break;
-      this.swap(idx, parent);
-      idx = parent;
+    let current = this.length;
+    while (current > 1) {
+      let parent = Math.floor(current / 2);
+      if (this.compare(this.array[current], this.array[parent])) {
+        this.swap(current, parent);
+        current = parent;
+      } else {
+        break;
+      }
     }
   }
-
   heapDown() {
-    let idx = 1;
-    const size = this.length;
-
-    while (true) {
-      let left = idx * 2;
-      let right = idx * 2 + 1;
-      let next = idx;
+    let current = 1;
+    this.array[current] = this.array[this.length];
+    this.array.pop();
+    while (current <= this.length) {
+      let leftChild = current * 2;
+      let rightChild = current * 2 + 1;
+      let nextChild = leftChild;
+      if (!this.array[leftChild]) break;
 
       if (
-        left <= size &&
-        this.compare(this.array[left], this.array[next])
+        this.array[rightChild] &&
+        this.compare(this.array[rightChild], this.array[leftChild])
       ) {
-        next = left;
+        nextChild = rightChild;
       }
-      if (
-        right <= size &&
-        this.compare(this.array[right], this.array[next])
-      ) {
-        next = right;
+      if (this.compare(this.array[current], this.array[nextChild])) {
+        break;
       }
-
-      if (next === idx) break;
-
-      this.swap(idx, next);
-      idx = next;
+      this.swap(nextChild, current);
+      current = nextChild;
     }
   }
-
   swap(a, b) {
     [this.array[a], this.array[b]] = [this.array[b], this.array[a]];
   }
 }
 
-/**
- * 다익스트라
- * start에서 출발해 모든 노드까지의 최단거리 dist[]를 돌려준다.
- * g는 사용할 그래프(adj list)
- */
-function dijkstra(start, g) {
-  const dist = Array(n + 1).fill(Infinity);
-  dist[start] = 0;
-
-  const pq = new MinHeap((a, b) => a.weight < b.weight);
-  pq.push({ dest: start, weight: 0 });
-
-  while (pq.length > 0) {
-    const { dest: curNode, weight: curCost } = pq.pop();
-
-    // 이미 더 짧은 경로로 처리한 적 있으면 스킵
-    if (curCost > dist[curNode]) continue;
-
-    // 인접한 간선들 relax
-    for (const { dest: nextNode, weight: edgeWeight } of g[curNode]) {
-      const nextCost = curCost + edgeWeight;
-      if (nextCost < dist[nextNode]) {
-        dist[nextNode] = nextCost;
-        pq.push({ dest: nextNode, weight: nextCost });
+const readline = require("readline").createInterface({
+  input: process.stdin,
+  output: process.stdout,
+});
+let n = 0,
+  m = 0,
+  x = 0,
+  iCount = 0,
+  lineCount = 0;
+let graph = [];
+readline
+  .on("line", (line) => {
+    if (lineCount === 0) {
+      [n, m, x] = line
+        .trim()
+        .split(" ")
+        .map((val) => Number(val));
+      graph = Array.from({ length: n + 1 }, (val) => []);
+      lineCount += 1;
+    } else {
+      let [src, dest, weight] = line
+        .trim()
+        .split(" ")
+        .map((val) => Number(val));
+      graph[src].push({ node: dest, weight: weight });
+      iCount += 1;
+      if (iCount === m) readline.close();
+    }
+  })
+  .on("close", () => {
+    let answers = [];
+    let reversedGraph = Array.from({ length: n + 1 }, (val) => []);
+    graph.forEach((current, src) => {
+      current.forEach((nextNode) => {
+        let { node, weight } = nextNode;
+        reversedGraph[node].push({ node: src, weight: weight });
+      });
+    });
+    let xTosrc = dijkstra(graph, x);
+    let srcTox = dijkstra(reversedGraph, x);
+    for (let i = 1; i <= n; i++) {
+      if (i === x) answers.push(0);
+      else {
+        answers.push(srcTox[i] + xTosrc[i]);
       }
     }
-  }
+    console.log(Math.max(...answers));
 
-  return dist;
-}
+    function dijkstra(graph, startNode) {
+      let pq = new PriorityQueue((a, b) => {
+        if (a.weight < b.weight) return true;
+        return false;
+      });
+      let weights = Array(n + 1).fill(Infinity);
+      weights[startNode] = 0;
+      pq.push({ node: startNode, weight: 0 });
+      while (pq.length !== 0) {
+        let { node: currentNode, weight: currentWeight } = pq.pop();
+        if (currentWeight > weights[currentNode]) continue;
+        for (let edge of graph[currentNode]) {
+          let { node: nextNode, weight: nextWeight } = edge;
+          let nextDist = currentWeight + nextWeight;
+          if (weights[nextNode] > nextDist) {
+            weights[nextNode] = nextDist;
+            pq.push({ node: nextNode, weight: nextDist });
+          }
+        }
+      }
 
-// X에서 출발해서 각 노드까지(X -> i)
-const distFromX = dijkstra(x, graph);
-
-// 각 노드에서 X까지(i -> X)
-// == 역방향 그래프에서 X -> i
-const distToX = dijkstra(x, reverseGraph);
-
-// 모든 학생 i에 대해 왕복 거리 계산: i -> X + X -> i
-let answer = 0;
-for (let i = 1; i <= n; i++) {
-  const roundTrip = distToX[i] + distFromX[i];
-  if (roundTrip > answer) answer = roundTrip;
-}
-
-console.log(answer);
+      return weights;
+    }
+  });
